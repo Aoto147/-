@@ -1,1 +1,523 @@
-gitgg
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カレンダー</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* ------------------------- 全体設定 ------------------------- */
+        body {
+            font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f7f7f7;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* ------------------------- サイドメニュー & オーバーレイ ------------------------- */
+        .sidebar-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 250px;
+            background-color: #ffffff;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            padding-top: 60px;
+        }
+
+        .sidebar-menu.open {
+            transform: translateX(0);
+        }
+        
+        .sidebar-item {
+            padding: 15px 20px;
+            font-size: 1rem;
+            color: #555;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 90;
+            display: none;
+            cursor: pointer;
+        }
+
+        /* ------------------------- トップバー (記録) ------------------------- */
+        .top-bar {
+            width: 100%;
+            background-color: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 10;
+        }
+
+        .top-bar-item {
+            font-size: 1.5rem;
+            color: #b3c568;
+            padding: 0 15px;
+            cursor: pointer;
+        }
+
+        .top-bar-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #555;
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        /* ------------------------- カレンダーコンテナ ------------------------- */
+        .calendar-container {
+            width: 90%;
+            max-width: 450px;
+            background-color: #f7f7f7;
+            border: 2px solid #8a2be2;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-top: 80px;
+            margin-bottom: 80px;
+        }
+
+        .header {
+            background-color: #9acd32;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+            font-size: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+
+        .year-month {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            align-items: center;
+        }
+
+        .header .year {
+            font-size: 1.2rem;
+            color: #9acd32;
+        }
+
+        .header .month {
+            font-size: 2rem;
+            color: #555;
+        }
+        
+        .nav-btn {
+            background: none;
+            border: none;
+            color: #5d4037; /* ボタンの色 */
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0 15px;
+            outline: none;
+        }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            background-color: #b3c568;
+            color: #fff;
+            padding: 8px 0;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        .dates {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background-color: #f7f7f7;
+        }
+
+        .day {
+            min-height: 55px;
+            padding: 3px;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-end;
+            font-size: 1rem;
+            color: #666;
+            background-color: #f7f7f7;
+            cursor: pointer;
+        }
+
+        .day.prev-month, .day.next-month {
+            color: #a0a0a0;
+            background-color: #e9e9e9;
+            cursor: default;
+        }
+        
+        .day.selected {
+            background-color: #d3d3d3; 
+        }
+
+        /* ------------------------- 編集アイコン (右下) ------------------------- */
+        .edit-icon-container {
+            position: fixed;
+            right: 15px;
+            bottom: 80px;
+            width: 50px;
+            height: 50px;
+            background-color: #5d4037;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            z-index: 5;
+        }
+        .edit-icon {
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        /* ------------------------- フッター (ナビゲーション) ------------------------- */
+        .navigation-bar {
+            width: 100%;
+            background-color: #f7f7f7;
+            padding: 10px 0;
+            display: flex;
+            /* 修正: 要素を中央に寄せ、間隔を狭める */
+            justify-content: center; 
+            gap: 40px; /* 要素間の間隔を調整 */
+            align-items: center;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            border-top: 1px solid #9acd32;
+            z-index: 10;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #555;
+            text-decoration: none;
+        }
+        
+        .nav-item i {
+            font-size: 1.2rem;
+            margin-bottom: 3px;
+        }
+        
+        /* ------------------------- チェックリストポップアップのスタイル (省略) ------------------------- */
+        .checklist-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+        .checklist-popup {
+            background-color: #f7f7f7;
+            border-radius: 20px;
+            padding: 30px;
+            width: 90%;
+            max-width: 350px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        .checklist-header {
+            font-size: 1.5rem;
+            color: #5d4037;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .checklist-header i {
+            color: #9acd32;
+            margin-right: 10px;
+            font-size: 2rem;
+        }
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+        .checklist-item input[type="checkbox"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            margin-right: 10px;
+            position: relative;
+            outline: none;
+            cursor: pointer;
+        }
+        .checklist-item input[type="checkbox"]:checked {
+            border-color: #9acd32;
+            background-color: #9acd32;
+        }
+        .checklist-item input[type="checkbox"]:checked::after {
+            content: '\f00c';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            color: #fff;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+        }
+        .complete-button {
+            background-color: #5d4037;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 30px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 20px;
+            outline: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="sidebarMenu" class="sidebar-menu">
+        <div class="sidebar-item"><i class="fas fa-home"></i>ホーム</div>
+        <div class="sidebar-item"><i class="fas fa-chart-bar"></i>グラフ</div>
+        <div class="sidebar-item"><i class="fas fa-cog"></i>設定</div>
+    </div>
+    <div id="overlay" class="overlay"></div>
+
+    <div class="top-bar">
+        <div id="menuBtn" class="top-bar-item"><i class="fas fa-bars"></i></div>
+        <div class="top-bar-title">記録</div>
+        <div class="top-bar-item"><i class="fas fa-ellipsis-h"></i></div>
+    </div>
+
+    <div class="calendar-container">
+        <div class="header">
+            <button id="prevBtn" class="nav-btn"><i class="fas fa-chevron-left"></i></button>
+            <div class="year-month">
+                <span id="year" class="year"></span>
+                <span id="month" class="month"></span>
+            </div>
+            <button id="nextBtn" class="nav-btn"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="weekdays">
+            <div>Sun</div>
+            <div>Mon</div>
+            <div>Tue</div>
+            <div>Wed</div>
+            <div>Thu</div>
+            <div>Fri</div>
+            <div>Sat</div>
+        </div>
+        <div id="calendarDates" class="dates">
+            </div>
+    </div>
+
+    <div class="edit-icon-container">
+        <i class="fas fa-pencil-alt edit-icon"></i>
+    </div>
+
+    <div class="navigation-bar">
+        <a href="#" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>適量チェック</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fas fa-file-alt"></i>
+            <span>コラム</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fas fa-book"></i>
+            <span>記録</span>
+        </a>
+    </div>
+    
+    <div id="checklistOverlay" class="checklist-overlay">
+        <div class="checklist-popup">
+            <div class="checklist-header">
+                <i class="fas fa-check-circle"></i>
+                チェックリスト
+            </div>
+            <div class="checklist-body">
+                <div class="checklist-item">
+                    <input type="checkbox" id="item1">
+                    <label for="item1">チェックリスト 1</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="item2">
+                    <label for="item2">チェックリスト 2</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="item3">
+                    <label for="item3">チェックリスト 3</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="item4">
+                    <label for="item4">チェックリスト 4</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="item5">
+                    <label for="item5">チェックリスト 5</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="item6">
+                    <label for="item6">チェックリスト 6</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="item7">
+                    <label for="item7">チェックリスト 7</label>
+                </div>
+            </div>
+            <button id="completeBtn" class="complete-button">完了!</button>
+        </div>
+    </div>
+
+    <script>
+        const menuBtn = document.getElementById('menuBtn');
+        const sidebarMenu = document.getElementById('sidebarMenu');
+        const overlay = document.getElementById('overlay');
+        const calendarDates = document.getElementById('calendarDates');
+        const yearEl = document.getElementById('year');
+        const monthEl = document.getElementById('month');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const checklistOverlay = document.getElementById('checklistOverlay');
+        const completeBtn = document.getElementById('completeBtn');
+
+        // 現在の日付で初期化
+        let currentDate = new Date();
+        currentDate.setDate(1); 
+
+        const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+
+        // --- メニュー操作関数 ---
+        function toggleMenu() {
+            sidebarMenu.classList.toggle('open');
+            overlay.style.display = sidebarMenu.classList.contains('open') ? 'block' : 'none';
+        }
+
+        menuBtn.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+        document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.addEventListener('click', toggleMenu);
+        });
+
+        // --- カレンダー描画関数 ---
+        function renderCalendar() {
+            const today = new Date();
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            const firstDayOfMonth = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, month + 1, 0);
+            const prevLastDay = new Date(year, month, 0);
+            const prevLastDayDate = prevLastDay.getDate();
+
+            const firstDayIndex = firstDayOfMonth.getDay(); // 0 (Sun) - 6 (Sat)
+            const lastDayDate = lastDayOfMonth.getDate();
+
+            yearEl.textContent = year;
+            monthEl.textContent = monthNames[month];
+            calendarDates.innerHTML = '';
+
+            // 前月の日付を埋める
+            for (let i = firstDayIndex; i > 0; i--) {
+                const dayEl = document.createElement('div');
+                dayEl.classList.add('day', 'prev-month');
+                dayEl.textContent = prevLastDayDate - i + 1;
+                calendarDates.appendChild(dayEl);
+            }
+
+            // 今月の日付を埋める
+            for (let i = 1; i <= lastDayDate; i++) {
+                const dayEl = document.createElement('div');
+                dayEl.classList.add('day');
+                dayEl.textContent = i < 10 ? '0' + i : i;
+                
+                // 今日の日付をハイライト
+                if (i === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                     dayEl.classList.add('selected');
+                }
+                
+                dayEl.addEventListener('click', () => {
+                    // 日付がクリックされたらポップアップを表示
+                    checklistOverlay.style.display = 'flex';
+                });
+
+                calendarDates.appendChild(dayEl);
+            }
+
+            // 来月の日付を埋める (6週分になるように調整)
+            const totalDays = calendarDates.children.length;
+            const nextDays = (42 - totalDays) % 7; 
+            for (let i = 1; i <= nextDays; i++) {
+                const dayEl = document.createElement('div');
+                dayEl.classList.add('day', 'next-month');
+                dayEl.textContent = i < 10 ? '0' + i : i;
+                calendarDates.appendChild(dayEl);
+            }
+        }
+
+        // --- 月移動イベントリスナー ---
+        prevBtn.addEventListener('click', () => {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        });
+
+        // --- ポップアップ操作 ---
+        completeBtn.addEventListener('click', () => {
+            checklistOverlay.style.display = 'none';
+        });
+
+        // 初期表示
+        renderCalendar();
+    </script>
+</body>
+</html>
